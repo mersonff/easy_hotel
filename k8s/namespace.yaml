@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: easy-hotel
+  labels:
+    name: easy-hotel
+    app: easy-hotel 

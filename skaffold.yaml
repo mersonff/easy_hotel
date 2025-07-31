@@ -1,0 +1,163 @@
+apiVersion: skaffold/v2beta29
+kind: Config
+metadata:
+  name: easy-hotel
+
+build:
+  artifacts:
+    # Rooms (Rails)
+    - image: easy-hotel-rooms
+      context: ./services/rooms
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: 'app/**/*.rb'
+            dest: .
+          - src: 'config/**/*.rb'
+            dest: .
+          - src: 'Gemfile*'
+            dest: .
+    
+    # Reservations (Go)
+    - image: easy-hotel-reservations
+      context: ./services/reservations
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '**/*.go'
+            dest: .
+          - src: 'go.*'
+            dest: .
+    
+    # Users (TypeScript)
+    - image: easy-hotel-users
+      context: ./services/users
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .
+          - src: 'package*.json'
+            dest: .
+    
+    # Payments (Go)
+    - image: easy-hotel-payments
+      context: ./services/payments
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: '**/*.go'
+            dest: .
+          - src: 'go.*'
+            dest: .
+    
+    # Notifications (TypeScript)
+    - image: easy-hotel-notifications
+      context: ./services/notifications
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: 'src/**/*.ts'
+            dest: .
+          - src: 'package*.json'
+            dest: .
+
+  tagPolicy:
+    gitCommit: {}
+  
+  local:
+    push: false
+    useBuildkit: true
+
+deploy:
+  kubectl:
+    manifests:
+      - k8s/namespace.yaml
+      - k8s/configmaps/app-config.yaml
+      - k8s/secrets/app-secrets.yaml
+      - k8s/storage/mongodb-pv.yaml
+      - k8s/storage/redis-pv.yaml
+      - k8s/databases/postgres-users.yaml
+      - k8s/databases/postgres-payments.yaml
+      - k8s/databases/mongodb.yaml
+      - k8s/databases/redis.yaml
+      - k8s/services/kong.yaml
+      - k8s/services/kafka.yaml
+      - k8s/services/kafka-topics.yaml
+      - k8s/services/rooms.yaml
+      - k8s/services/reservations.yaml
+      - k8s/services/users.yaml
+      - k8s/services/payments.yaml
+      - k8s/services/notifications.yaml
+      - k8s/autoscaling/hpa.yaml
+
+portForward:
+  - resourceType: service
+    resourceName: kong-service
+    port: 8001
+    localPort: 3000
+    namespace: easy-hotel
+  - resourceType: service
+    resourceName: kong-service
+    port: 8000
+    localPort: 8000
+    namespace: easy-hotel
+  - resourceType: service
+    resourceName: rooms-service
+    port: 3002
+    localPort: 3002
+    namespace: easy-hotel
+  - resourceType: service
+    resourceName: reservations-service
+    port: 3001
+    localPort: 3001
+    namespace: easy-hotel
+  - resourceType: service
+    resourceName: users-service
+    port: 3003
+    localPort: 3003
+    namespace: easy-hotel
+  - resourceType: service
+    resourceName: payments-service
+    port: 3004
+    localPort: 3004
+    namespace: easy-hotel
+  - resourceType: service
+    resourceName: notifications-service
+    port: 3005
+    localPort: 3005
+    namespace: easy-hotel
+
+profiles:
+  - name: dev
+    patches:
+      - op: replace
+        path: /build/artifacts/0/sync/manual/0/src
+        value: 'app/**/*.{rb,erb}'
+      - op: replace
+        path: /build/artifacts/1/sync/manual/0/src
+        value: '**/*.go'
+      - op: replace
+        path: /build/artifacts/2/sync/manual/0/src
+        value: 'src/**/*.{ts,js}'
+      - op: replace
+        path: /build/artifacts/3/sync/manual/0/src
+        value: '**/*.go'
+      - op: replace
+        path: /build/artifacts/4/sync/manual/0/src
+        value: 'src/**/*.{ts,js}'
+  
+  - name: prod
+    patches:
+      - op: replace
+        path: /build/local/push
+        value: true
+      - op: add
+        path: /build/tagPolicy
+        value:
+          sha256: {} 

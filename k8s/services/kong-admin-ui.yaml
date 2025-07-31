@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-admin-ui
+  namespace: easy-hotel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong-admin-ui
+  template:
+    metadata:
+      labels:
+        app: kong-admin-ui
+    spec:
+      containers:
+      - name: kong-admin-ui
+        image: kong-admin-ui:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: KONG_ADMIN_URL
+          value: "http://kong-service:8000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin-ui-service
+  namespace: easy-hotel
+spec:
+  selector:
+    app: kong-admin-ui
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  type: ClusterIP 

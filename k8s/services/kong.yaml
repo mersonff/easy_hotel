@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: easy-hotel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+      - name: kong
+        image: kong:3.4
+        ports:
+        - containerPort: 8000  # Admin API
+        - containerPort: 8001  # Proxy
+        - containerPort: 8443  # Admin SSL
+        - containerPort: 8444  # Proxy SSL
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_PROXY_ACCESS_LOG
+          value: /dev/stdout
+        - name: KONG_ADMIN_ACCESS_LOG
+          value: /dev/stdout
+        - name: KONG_PROXY_ERROR_LOG
+          value: /dev/stderr
+        - name: KONG_ADMIN_ERROR_LOG
+          value: /dev/stderr
+        - name: KONG_ADMIN_LISTEN
+          value: 0.0.0.0:8000
+        - name: KONG_PROXY_LISTEN
+          value: 0.0.0.0:8001
+        - name: KONG_DECLARATIVE_CONFIG
+          value: /etc/kong/kong.yml
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: kong-config
+          mountPath: /etc/kong
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: easy-hotel
+data:
+  kong.yml: |
+    _format_version: "2.1"
+    _transform: true
+    
+    services:
+    - name: rooms-service
+      url: http://rooms-service:3002
+      routes:
+      - name: rooms-route
+        protocols: ["http"]
+        paths: ["/rooms"]
+        strip_path: true
+        
+    - name: reservations-service
+      url: http://reservations-service:3001
+      routes:
+      - name: reservations-route
+        protocols: ["http"]
+        paths: ["/reservations"]
+        strip_path: true
+        
+    - name: users-service
+      url: http://users-service:3003
+      routes:
+      - name: users-route
+        protocols: ["http"]
+        paths: ["/users"]
+        strip_path: true
+        
+    - name: payments-service
+      url: http://payments-service:3004
+      routes:
+      - name: payments-route
+        protocols: ["http"]
+        paths: ["/payments"]
+        strip_path: true
+        
+    - name: notifications-service
+      url: http://notifications-service:3005
+      routes:
+      - name: notifications-route
+        protocols: ["http"]
+        paths: ["/notifications"]
+        strip_path: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-service
+  namespace: easy-hotel
+spec:
+  selector:
+    app: kong
+  ports:
+  - name: proxy
+    port: 8001
+    targetPort: 8001
+  - name: admin
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kong-ingress
+  namespace: easy-hotel
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: easy-hotel.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kong-service
+            port:
+              number: 8001 

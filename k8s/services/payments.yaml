@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments
+  namespace: easy-hotel
+  labels:
+    app: payments
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payments
+  template:
+    metadata:
+      labels:
+        app: payments
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:15
+        command: ['sh', '-c', 'until pg_isready -h postgres-payments-service -p 5432; do echo waiting for postgres-payments; sleep 2; done;']
+      containers:
+      - name: payments
+        image: easy-hotel-payments:latest
+        imagePullPolicy: Never  # Para desenvolvimento local
+        ports:
+        - containerPort: 3004
+        env:
+        - name: PORT
+          value: "3004"
+        - name: DB_HOST
+          value: "postgres-payments-service"
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: POSTGRES_PASSWORD
+        - name: DB_NAME
+          value: "easy_hotel_payments"
+        - name: MERCADOPAGO_ACCESS_TOKEN
+          value: "TEST-6700584212967078-073014-26fb886b92988261a6a0b1b629e56839-119916772"
+        - name: MERCADOPAGO_PUBLIC_KEY
+          value: "TEST-b7d5893f-f5af-4936-a199-b22b9d6e22fc"
+        - name: MERCADOPAGO_SANDBOX
+          value: "true"
+        - name: WEBHOOK_BASE_URL
+          value: "http://payments-service:3004"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-service
+  namespace: easy-hotel
+spec:
+  selector:
+    app: payments
+  ports:
+  - port: 3004
+    targetPort: 3004
+  type: ClusterIP 

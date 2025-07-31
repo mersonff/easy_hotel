@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-topics
+  namespace: easy-hotel
+data:
+  # Tópicos de eventos do sistema
+  topics: |
+    # Eventos de Reservas
+    hotel.reservations.created
+    hotel.reservations.updated
+    hotel.reservations.cancelled
+    hotel.reservations.checked-in
+    hotel.reservations.checked-out
+    
+    # Eventos de Quartos
+    hotel.rooms.available
+    hotel.rooms.occupied
+    hotel.rooms.maintenance
+    hotel.rooms.updated
+    
+    # Eventos de Usuários
+    hotel.users.registered
+    hotel.users.updated
+    hotel.users.deleted
+    
+    # Eventos de Pagamentos
+    hotel.payments.processed
+    hotel.payments.failed
+    hotel.payments.refunded
+    
+    # Eventos de Notificações
+    hotel.notifications.sent
+    hotel.notifications.failed
+    
+    # Eventos de Sistema
+    hotel.system.health
+    hotel.system.error 
